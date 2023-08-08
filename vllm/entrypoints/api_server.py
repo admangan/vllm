@@ -5,6 +5,7 @@ from typing import AsyncGenerator
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 import uvicorn
+from ray import serve
 
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
@@ -67,6 +68,15 @@ async def generate(request: Request) -> Response:
     return JSONResponse(ret)
 
 
+class LanguageModel:
+    def __init__(self):
+        self.engine_args = AsyncEngineArgs.from_cli_args(args)
+        self.engine = AsyncLLMEngine.from_engine_args(self.engine_args)
+
+    async def generate(self, request):
+        return await app(request)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=str, default="localhost")
@@ -74,11 +84,29 @@ if __name__ == "__main__":
     parser = AsyncEngineArgs.add_cli_args(parser)
     args = parser.parse_args()
 
-    engine_args = AsyncEngineArgs.from_cli_args(args)
-    engine = AsyncLLMEngine.from_engine_args(engine_args)
+    if not ray.is_initialized():
+        ray.init()
 
-    uvicorn.run(app,
-                host=args.host,
-                port=args.port,
-                log_level="debug",
-                timeout_keep_alive=TIMEOUT_KEEP_ALIVE)
+    # Create a Ray Serve instance.
+    client = serve.start()
+
+    #define teh backend with the needed number of replicas and GPU requirements
+    backend_config = serve.BackendConfig(
+        num_replicas=4,
+        resources={"GPU": 1}
+    )
+    client.create_backend("llm_backend", LanguageModel, config=backend_config)
+
+    #Link the backend to an endpoint
+    client.create_endpoint("llm_endpoint", backend="llm_backend", route="/generate", methods=["POST"])
+
+    print("Serving on http://{}:{}".format(args.host, args.port))
+
+    # engine_args = AsyncEngineArgs.from_cli_args(args)
+    # engine = AsyncLLMEngine.from_engine_args(engine_args)
+
+    # uvicorn.run(app,
+    #             host=args.host,
+    #             port=args.port,
+    #             log_level="debug",
+    #             timeout_keep_alive=TIMEOUT_KEEP_ALIVE)
