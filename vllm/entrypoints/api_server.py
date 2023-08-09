@@ -84,7 +84,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     
-    LanguageModel.deploy()
+    serve.run(LanguageModel.bind())
     # Create a Ray Serve instance.
     
 
