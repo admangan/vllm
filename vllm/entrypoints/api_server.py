@@ -21,9 +21,9 @@ app = FastAPI()
 @serve.deployment(num_replicas=2, ray_actor_options={"num_gpus": 2}, route_prefix="/")
 @serve.ingress(app)
 class LanguageModel:
-    def __init__(self, args):
-        self.engine_args = AsyncEngineArgs.from_cli_args(args)
-        self.engine = AsyncLLMEngine.from_engine_args(self.engine_args)
+    def __init__(self, args, engine_args, engine):
+        self.engine_args = engine_args
+        self.engine = engine
 
     @app.post("/generate")
     async def generate(self, request):
@@ -83,8 +83,10 @@ if __name__ == "__main__":
     parser = AsyncEngineArgs.add_cli_args(parser)
     args = parser.parse_args()
 
+    engine_args = AsyncEngineArgs.from_cli_args(args)
+    engine = AsyncLLMEngine.from_engine_args(engine_args)
     
-    serve.run(LanguageModel.bind(args))
+    serve.run(LanguageModel.bind(args, engine_args, engine))
     # Create a Ray Serve instance.
     
 
