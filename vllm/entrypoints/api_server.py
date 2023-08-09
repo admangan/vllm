@@ -91,21 +91,17 @@ if __name__ == "__main__":
     # Create a Ray Serve instance.
     client = serve.start()
 
-    #define teh backend with the needed number of replicas and GPU requirements
-    backend_config = serve.BackendConfig(
-        num_replicas=4,
-        resources={"GPU": 1}
-    )
-    client.create_backend("llm_backend", LanguageModel, config=backend_config)
+    #define the backend with the needed number of replicas and GPU requirements
+    client.create_backend("llm_backend", LanguageModel, num_replicas=4, resources={"GPU": 1})
 
-    #Link the backend to an endpoint
+    #link the backend to an endpoint
     client.create_endpoint("llm_endpoint", backend="llm_backend", route="/generate", methods=["POST"])
 
     print("Serving on http://{}:{}".format(args.host, args.port))
 
     # engine_args = AsyncEngineArgs.from_cli_args(args)
     # engine = AsyncLLMEngine.from_engine_args(engine_args)
-
+    
     # uvicorn.run(app,
     #             host=args.host,
     #             port=args.port,
