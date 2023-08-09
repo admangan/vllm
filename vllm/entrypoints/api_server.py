@@ -21,7 +21,7 @@ app = FastAPI()
 @serve.deployment(num_replicas=4, ray_actor_options={"num_gpus": 1}, route_prefix="/")
 @serve.ingress(app)
 class LanguageModel:
-    def __init__(self):
+    def __init__(self, args):
         self.engine_args = AsyncEngineArgs.from_cli_args(args)
         self.engine = AsyncLLMEngine.from_engine_args(self.engine_args)
 
@@ -78,13 +78,13 @@ class LanguageModel:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", type=str, default="localhost")
+    parser.add_argument("--host", type=str, default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8000)
     parser = AsyncEngineArgs.add_cli_args(parser)
     args = parser.parse_args()
 
     
-    serve.run(LanguageModel.bind())
+    serve.run(LanguageModel.bind(args))
     # Create a Ray Serve instance.
     
 
