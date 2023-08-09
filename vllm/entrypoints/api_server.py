@@ -18,7 +18,7 @@ TIMEOUT_TO_PREVENT_DEADLOCK = 1  # seconds.
 app = FastAPI()
     
 
-@serve.deployment(num_replicas=4, ray_actor_options={"num_gpus": 1}, route_prefix="/")
+@serve.deployment(num_replicas=2, ray_actor_options={"num_gpus": 2}, route_prefix="/")
 @serve.ingress(app)
 class LanguageModel:
     def __init__(self, args):
