@@ -5,6 +5,7 @@ from typing import AsyncGenerator
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 import uvicorn
+import ray
 from ray import serve
 
 from vllm.engine.arg_utils import AsyncEngineArgs
