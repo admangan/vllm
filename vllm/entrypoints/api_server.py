@@ -18,7 +18,7 @@ TIMEOUT_TO_PREVENT_DEADLOCK = 1  # seconds.
 app = FastAPI()
     
 
-@serve.deployment(num_replicas=2, ray_actor_options={"num_gpus": 2}, route_prefix="/")
+@serve.deployment(route_prefix="/")
 @serve.ingress(app)
 class LanguageModel:
     def __init__(self, args, engine_args, engine):
@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
     engine_args = AsyncEngineArgs.from_cli_args(args)
     engine = AsyncLLMEngine.from_engine_args(engine_args)
-    
+    print("Starting server")
     serve.run(LanguageModel.bind(args, engine_args, engine))
     # Create a Ray Serve instance.
     
