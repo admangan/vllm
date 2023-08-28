@@ -21,6 +21,7 @@ app = FastAPI()
 @serve.deployment(route_prefix="/")
 @serve.ingress(app)
 class LanguageModel:
+    
     def __init__(self, args, engine_args, engine):
         self.engine_args = engine_args
         self.engine = engine

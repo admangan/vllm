@@ -17,6 +17,35 @@ class Disabledtqdm(tqdm):
         super().__init__(*args, **kwargs, disable=True)
 
 
+def _hf_model_weights_iterator(hf_folder):
+    hf_safetensors_files = [
+        x for x in glob.glob(os.path.join(hf_folder, "*.safetensors"))
+    ]
+    if len(hf_safetensors_files) != 0:
+        from safetensors import safe_open
+
+        hf_safetensors_files = [
+            x for x in glob.glob(os.path.join(hf_folder, "*.safetensors"))
+        ]
+        for safetensor_file in hf_safetensors_files:
+            with safe_open(safetensor_file, framework="pt", device="cpu") as f:
+                for name in f.keys():
+                    yield name, f.get_tensor(name)
+        torch.cuda.empty_cache()
+    else:
+        hf_bin_files = [
+            x
+            for x in glob.glob(os.path.join(hf_folder, "*.bin"))
+            if not x.endswith("training_args.bin")
+        ]
+        for bin_file in hf_bin_files:
+            state = torch.load(bin_file, map_location="cpu")
+            for name, param in state.items():
+                yield name, param
+            del state
+            torch.cuda.empty_cache()
+
+
 def hf_model_weights_iterator(
     model_name_or_path: str,
     cache_dir: Optional[str] = None,
@@ -32,17 +61,14 @@ def hf_model_weights_iterator(
     is_local = os.path.isdir(model_name_or_path)
     if not is_local:
         with lock:
-            hf_folder = snapshot_download(model_name_or_path,
-                                          allow_patterns="*.bin",
-                                          cache_dir=cache_dir,
-                                          tqdm_class=Disabledtqdm)
+            hf_folder = snapshot_download(
+                model_name_or_path,
+                allow_patterns="*.bin",
+                cache_dir=cache_dir,
+                tqdm_class=Disabledtqdm,
+            )
     else:
         hf_folder = model_name_or_path
-
-    hf_bin_files = [
-        x for x in glob.glob(os.path.join(hf_folder, "*.bin"))
-        if not x.endswith("training_args.bin")
-    ]
 
     if use_np_cache:
         # Convert the model weights from torch tensors to numpy arrays for
@@ -53,13 +79,11 @@ def hf_model_weights_iterator(
         with lock:
             if not os.path.exists(weight_names_file):
                 weight_names = []
-                for bin_file in hf_bin_files:
-                    state = torch.load(bin_file, map_location="cpu")
-                    for name, param in state.items():
-                        param_path = os.path.join(np_folder, name)
-                        with open(param_path, "wb") as f:
-                            np.save(f, param.cpu().detach().numpy())
-                        weight_names.append(name)
+                for name, param in _hf_model_weights_iterator(hf_folder):
+                    param_path = os.path.join(np_folder, name)
+                    with open(param_path, "wb") as f:
+                        np.save(f, param.cpu().detach().numpy())
+                    weight_names.append(name)
                 with open(weight_names_file, "w") as f:
                     json.dump(weight_names, f)
 
@@ -72,10 +96,8 @@ def hf_model_weights_iterator(
                 param = np.load(f)
             yield name, torch.from_numpy(param)
     else:
-        for bin_file in hf_bin_files:
-            state = torch.load(bin_file, map_location="cpu")
-            for name, param in state.items():
-                yield name, param
+        for name, param in _hf_model_weights_iterator(hf_folder):
+            yield name, param
 
 
 def load_tensor_parallel_weights(
